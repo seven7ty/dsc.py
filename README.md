@@ -162,7 +162,7 @@ asyncio.get_event_loop().run_until_complete(client.transfer_link(link="mycoolthi
 - author: str
 - recipients: str
 - message: str
-- character: str (Referred as type in the API, renamed because of name shadowing)
+- character: str (Referred to as type in the API, renamed because of name shadowing)
 
 ### Contributing 
 
