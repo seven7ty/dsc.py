@@ -65,7 +65,7 @@ client = dsc.Client()
 
 announcements = asyncio.get_event_loop().run_until_complete(client.get_announcements(548803750634979340)) # <-- Discord User ID
 
-# I couldn't find a reference announcement, however i know its a list
+# Returns a list of Announcement objects associated with the given user
 ```
 
 ## Authenticated section
@@ -157,6 +157,12 @@ asyncio.get_event_loop().run_until_complete(client.transfer_link(link="mycoolthi
 - saying: str (For example, "You have been invited to join a server!")
 - image: str (Url to image associated)
 - color: str (Hex color, ex. #efefef)
+
+#### Announcement
+- author: str
+- recipients: str
+- message: str
+- character: str (Referred as type in the API, renamed because of name shadowing)
 
 ### Contributing 
 
