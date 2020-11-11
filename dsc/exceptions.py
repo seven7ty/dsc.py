@@ -8,3 +8,11 @@ class BadToken(AttributeError):
 
 class Forbidden(AttributeError):
     pass
+
+
+class BearerNoToken(AttributeError):
+    pass
+
+
+class BadLinkType(AttributeError):
+    pass
