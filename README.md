@@ -7,7 +7,7 @@ Installing `dsc.py` is easy, just run `pip install dsc.py`!
 
 ### Usage 
 
-`dsc.py` covers all routes in the dsc.gg API. You can find example usage of all of them below, and for detailed attributes of the objects returned, go here.
+`dsc.py` covers all routes in the dsc.gg API. You can find example usage of all of them below, and for detailed attributes of the objects returned, [go here.](#dscpy-objects)
 Note that all the examples can be used for example with a discord.py bot, but for the sake of simplicity I decided to use plain async and asyncio.
 
 #### Get a single link
@@ -158,4 +158,17 @@ asyncio.get_event_loop().run_until_complete(client.transfer_link(link="mycoolthi
 - image: str (Url to image associated)
 - color: str (Hex color, ex. #efefef)
 
+### Contributing 
 
+This package is opensource so anyone with adequate python experience can contribute to this project!
+
+### Report Issues
+If you find any error/bug/mistake with the package or in the code feel free to create an issue and report it [here.](https://github.com/itsmewulf/dlabs.py/issues)
+
+### Fix/Edit Content
+If you want to contribute to this package, fork the repository, make your changes and then simply create a Pull Request!
+
+### Contact
+If you want to contact me -<br>
+**Mail -** ```wulf.developer@gmail.com```<br>
+**Discord -** ```wulf#9716```
