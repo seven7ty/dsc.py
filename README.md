@@ -163,7 +163,7 @@ asyncio.get_event_loop().run_until_complete(client.transfer_link(link="mycoolthi
 This package is opensource so anyone with adequate python experience can contribute to this project!
 
 ### Report Issues
-If you find any error/bug/mistake with the package or in the code feel free to create an issue and report it [here.](https://github.com/itsmewulf/dlabs.py/issues)
+If you find any error/bug/mistake with the package or in the code feel free to create an issue and report it [here.](https://github.com/itsmewulf/dsc.py/issues)
 
 ### Fix/Edit Content
 If you want to contribute to this package, fork the repository, make your changes and then simply create a Pull Request!
