@@ -34,9 +34,9 @@ import asyncio
 
 client = dsc.Client()
 
-link = asyncio.get_event_loop().run_until_complete(client.get_links(548803750634979340)) # <-- Discord User ID
+links = asyncio.get_event_loop().run_until_complete(client.get_links(548803750634979340)) # <-- Discord User ID
 
-# link is now a list of Link objects from the previous example
+# links is now a list of Link objects from the previous example
 ```
 
 #### Get a dsc.gg user
