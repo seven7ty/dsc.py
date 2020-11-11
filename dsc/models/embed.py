@@ -8,6 +8,7 @@ class Embed:
         self.saying: Union[str, None] = data.get("saying", None)
         self.image: Union[str, None] = data.get("image", None)
         self.color: Union[str, None] = data.get("color", None)
+        self.raw: dict = data
 
     def __str__(self) -> str:
         return self.title
