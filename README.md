@@ -70,14 +70,17 @@ announcements = asyncio.get_event_loop().run_until_complete(client.get_announcem
 
 ## Authenticated section
 
-Methods in this section require you to pass a Discord OAuth Token into the client constructor. Information on how to find your token can be found [here.](https://www.youtube.com/watch?v=xuB1WQVM3R8) Below is an example of using an authenticated client to create a link.
+Methods in this section require you to pass a Discord OAuth Token into the client constructor. Information on how to find your user token can be found [here.](https://www.youtube.com/watch?v=xuB1WQVM3R8) Another way of authenticating is getting a `Bearer` type token that has limited access to your account itself, but retains all API functionality (safer). Below is a guide on how to get your `Bearer` token.
+
+#### Getting a Bearer Token
+Head over to [dsc.gg](https://dsc.gg) and log in. Go into the dashboard, and toggle dev tools with `ctrl + shift + i`. Click on the `Console` tab on the top, and type in `localStorage.getItem('access_token')`, copy the resulting text and you're done!
 
 #### Create a link
 ```py
 import dsc
 import asyncio
 
-client = dsc.Client("YOUR DISCORD USER TOKEN")
+client = dsc.Client("YOUR DISCORD OAuth TOKEN") # If you're using a Bearer token, pass in "bearer=True" as well
 
 asyncio.get_event_loop().run_until_complete(client.create_link(link="mycoolthing", redirect="https://mycoolbotinvite.gg", link_type="bot")) 
 
@@ -94,7 +97,7 @@ Note that the link itself (ex. dsc.gg/mycoolbot) cannot be changed, this is an A
 import dsc
 import asyncio
 
-client = dsc.Client("YOUR DISCORD USER TOKEN")
+client = dsc.Client("YOUR DISCORD OAuth TOKEN") # If you're using a Bearer token, pass in "bearer=True" as well
 
 asyncio.get_event_loop().run_until_complete(client.update_link(link="mycoolthing", redirect="https://mycoolserverinvite.gg", link_type="server")) 
 
@@ -109,7 +112,7 @@ asyncio.get_event_loop().run_until_complete(client.update_link(link="mycoolthing
 import dsc
 import asyncio
 
-client = dsc.Client("YOUR DISCORD USER TOKEN")
+client = dsc.Client("YOUR DISCORD OAuth TOKEN") # If you're using a Bearer token, pass in "bearer=True" as well
 
 asyncio.get_event_loop().run_until_complete(client.delete_link(link="mycoolthing")) 
 
@@ -122,7 +125,7 @@ asyncio.get_event_loop().run_until_complete(client.delete_link(link="mycoolthing
 import dsc
 import asyncio
 
-client = dsc.Client("YOUR DISCORD USER TOKEN")
+client = dsc.Client("YOUR DISCORD OAuth TOKEN") # If you're using a Bearer token, pass in "bearer=True" as well
 
 asyncio.get_event_loop().run_until_complete(client.transfer_link(link="mycoolthing", user_id=548803750634979340, comments="Giving it to my friend")) 
 
@@ -138,6 +141,7 @@ asyncio.get_event_loop().run_until_complete(client.transfer_link(link="mycoolthi
 - premium: bool
 - blacklisted: bool
 - staff: Any
+- raw : dict (The raw response from the API)
 
 #### Link
 - clicks: int
@@ -150,6 +154,7 @@ asyncio.get_event_loop().run_until_complete(client.transfer_link(link="mycoolthi
 - click_other: int or None (idk what this is honestly)
 - agents: str (For advanced users, a gibberish string with user agents)
 - embed: dsc.Embed (See below)
+- raw : dict
 
 #### Embed
 - title: str 
@@ -157,12 +162,14 @@ asyncio.get_event_loop().run_until_complete(client.transfer_link(link="mycoolthi
 - saying: str (For example, "You have been invited to join a server!")
 - image: str (Url to image associated)
 - color: str (Hex color, ex. #efefef)
+- raw : dict
 
 #### Announcement
 - author: str
 - recipients: str
 - message: str
 - character: str (Referred to as type in the API, renamed because of name shadowing)
+- raw : dict
 
 ### Contributing 
 
