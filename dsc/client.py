@@ -27,14 +27,29 @@ SOFTWARE.
 from aiohttp import ClientSession
 from .models.link import Link
 from .models.user import User
-from .exceptions import NoToken, BadToken, Forbidden
+from .models.announcement import Announcement
+from .exceptions import (
+    NoToken, BadToken,
+    Forbidden, BearerNoToken,
+    BadLinkType
+)
 from typing import Union, List
 from asyncio import sleep
 
 
+async def _validate_link_type(link_type: str) -> bool:
+    valid: list = ["server", "bot", "template"]
+    return link_type.lower() in valid
+
+
 class Client:
-    def __init__(self, token: str = None):
-        self._token: str = token
+    def __init__(self, token: str = None, bearer: bool = False):
+        self._token: str = token.strip()
+        self._bearer: bool = bearer
+        if self._bearer and self._token is None:
+            raise BearerNoToken("If bearer is True, a token must be passed into the constructor")
+        if self._bearer:
+            self._token = "Bearer " + self._token
         self._ses: ClientSession = ClientSession()
         self._transfer_cache: list = []
 
@@ -69,9 +84,13 @@ class Client:
         if self._token is None:
             raise NoToken("You need to pass in a Discord OAuth2 Token into the object constructor to use this function")
 
+        if not await _validate_link_type(link_type):
+            raise BadLinkType("link_type must be either 'bot', 'server' or 'template'")
+
         res = await self._ses.post("https://dsc.gg/api/create",
                                    headers={"contentType": "application/json"},
-                                   json={"link": link, "redirect": redirect, "type": link_type, "token": self._token})
+                                   json={"link": link, "redirect": redirect, "type": link_type.lower(),
+                                         "token": self._token})
         if res.status != 200:
             if res.status == 401:
                 raise BadToken("Invalid OAuth2 token provided")
@@ -82,9 +101,13 @@ class Client:
         if self._token is None:
             raise NoToken("You need to pass in a Discord OAuth2 Token into the object constructor to use this function")
 
+        if not await _validate_link_type(link_type):
+            raise BadLinkType("link_type must be either 'bot', 'server' or 'template'")
+
         res = await self._ses.post("https://dsc.gg/api/update",
                                    headers={"contentType": "application/json"},
-                                   json={"link": link, "redirect": redirect, "type": link_type, "token": self._token})
+                                   json={"link": link, "redirect": redirect, "type": link_type.lower(),
+                                         "token": self._token})
 
         if res.status != 200:
             if res.status == 401:
