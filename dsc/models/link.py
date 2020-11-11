@@ -20,3 +20,10 @@ class Link:
         self.redirect: Union[str, None] = data.get("redirect", None)
         self.owner_id: Union[int, None] = int(data.get("owner", None))
         self.clicks: Union[int, None] = int(data.get("clicks"))
+        self.raw: dict = data
+
+    def __int__(self) -> int:
+        return self.clicks
+
+    def __str__(self) -> str:
+        return self.redirect
