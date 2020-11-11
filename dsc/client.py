@@ -63,7 +63,7 @@ class Client:
 
     async def get_announcements(self, user_id: Union[int, str]) -> list:
         res = await self._ses.get(f"https://dsc.gg/api/announcements/{user_id}")
-        return list(await res.json())
+        return list([Announcement(dict(a)) for a in list(await res.json())])
 
     async def create_link(self, link: Union[str, int], redirect: str, link_type: str) -> None:
         if self._token is None:
