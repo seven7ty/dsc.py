@@ -7,5 +7,8 @@ class Announcement:
         self.recipients: Union[str, None] = data.get("for", None)
         self.message: Union[str, None] = data.get("message", None)
         self.character: Union[str, None] = data.get("type", None)
+        self.raw: dict = data
 
+    def __str__(self) -> str:
+        return self.message
 
