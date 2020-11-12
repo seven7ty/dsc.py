@@ -1,4 +1,4 @@
-# dsc.py  [![Badge](https://img.shields.io/pypi/v/dsc.py?color=3776AB&logo=python&style=for-the-badge)](https://pypi.org/project/dsc.py/) [![Badge 2](https://img.shields.io/pypi/dm/dsc.py?color=3776AB&logo=python&style=for-the-badge)](https://pypi.org/project/dsc.py/)
+# dsc.py  [![Badge](https://img.shields.io/pypi/v/dsc.py?color=3776AB&logo=python&style=for-the-badge)](https://pypi.org/project/dsc.py/)
 A simple and easy to use, fully asynchronous wrapper for the dsc.gg API.
 
 ### Installation 
