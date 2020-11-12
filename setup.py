@@ -5,7 +5,7 @@ with open("./README.md", "r") as file:
 
 setuptools.setup(
     name="dsc.py",
-    version="0.3.0",
+    version="0.3.2",
     author="itsmewulf",
     author_email="wulf.developer@gmail.com",
     description="A simple and easy to use, fully asynchronous wrapper for the dsc.gg API.",
@@ -20,5 +20,5 @@ setuptools.setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.6'
+    python_requires='>=3.7'
 )
