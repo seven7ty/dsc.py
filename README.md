@@ -7,7 +7,7 @@ Installing `dsc.py` is easy, just run `pip install dsc.py`!
 
 ### Usage 
 
-`dsc.py` covers all routes in the dsc.gg API. You can find example usage of all of them below, and for detailed attributes of the objects returned, [go here.](#dscpy-objects)
+`dsc.py` covers all routes listed in the dsc.gg API docs. You can find example usage of all of them below, and for detailed attributes of the objects returned, [go here.](#dscpy-objects)
 Note that all the examples can be used for example with a discord.py bot, but for the sake of simplicity I decided to use plain async and asyncio.
 
 #### Get a single link
@@ -37,6 +37,34 @@ client = dsc.Client()
 links = asyncio.get_event_loop().run_until_complete(client.get_links(548803750634979340)) # <-- Discord User ID
 
 # links is now a list of Link objects from the previous example
+```
+
+#### Get top links
+
+```py
+import dsc
+import asyncio
+
+client = dsc.Client()
+
+links = asyncio.get_event_loop().run_until_complete(client.top_links()) 
+
+# links is now a list of Link objects that have the most likes on the platform
+```
+
+#### Fetch links
+
+This method is a little different. It gives you access to the entire dsc.gg link database, but you can only request one page at a time (they are in no particular order). To specify a page, simply pass an integer as a method argument and voila!
+
+```py
+import dsc
+import asyncio
+
+client = dsc.Client()
+
+links = asyncio.get_event_loop().run_until_complete(client.fetch_links(1)) 
+
+# links is now a list of Link objects that are on the first page in the API 
 ```
 
 #### Get a dsc.gg user
