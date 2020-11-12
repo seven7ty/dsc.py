@@ -180,7 +180,7 @@ asyncio.get_event_loop().run_until_complete(client.transfer_link(link="mycoolthi
 - redirect: str 
 - owner_id: int
 - click_other: int or None (idk what this is honestly)
-- agents: str (For advanced users, a gibberish string with user agents)
+- agents: str 
 - embed: dsc.Embed (See below)
 - raw : dict
 
@@ -188,7 +188,7 @@ asyncio.get_event_loop().run_until_complete(client.transfer_link(link="mycoolthi
 - title: str 
 - description: str 
 - saying: str (For example, "You have been invited to join a server!")
-- image: str (Url to image associated)
+- image: str (this is a URL)
 - color: str (Hex color, ex. #efefef)
 - raw : dict
 
@@ -196,7 +196,7 @@ asyncio.get_event_loop().run_until_complete(client.transfer_link(link="mycoolthi
 - author: str
 - recipients: str
 - message: str
-- character: str (Referred to as type in the API, renamed because of name shadowing)
+- type: str 
 - raw : dict
 
 ### Contributing 
