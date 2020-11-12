@@ -1,12 +1,14 @@
+# -*- coding: utf-8 -*-
+
 class NoToken(AttributeError):
     pass
 
 
-class BadToken(AttributeError):
+class Unauthorized(ConnectionRefusedError):
     pass
 
 
-class Forbidden(AttributeError):
+class Forbidden(ConnectionRefusedError):
     pass
 
 
@@ -14,5 +16,17 @@ class BearerNoToken(AttributeError):
     pass
 
 
-class BadLinkType(AttributeError):
+class BadLinkType(ValueError):
+    pass
+
+
+class InternalServerError(ConnectionError):
+    pass
+
+
+class BadRequest(ValueError):
+    pass
+
+
+class ServiceUnavailable(ConnectionError):
     pass
