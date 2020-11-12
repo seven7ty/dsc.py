@@ -120,7 +120,7 @@ class Client:
     async def fetch_links(self, page: int) -> Union[List[Link], List]:
         res = await self._ses.get(f"https://dsc.gg/api/all-links?page={page if page > 0 else 1}")
 
-        if res.status == 200:
+        if res.status == 200 and (_ := await res.text()).lower() != "none":
             return [Link(dict(link)) for link in list(await res.json())]
 
         self._v("Couldn't fetch links, returning an empty list")
