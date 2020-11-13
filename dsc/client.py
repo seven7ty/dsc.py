@@ -91,8 +91,7 @@ class Client:
             return link[15:]
         elif link.startswith('dsc.gg/'):
             return link[7:]
-        else:
-            return link
+        return link
 
     async def _rate_limit_transfer(self) -> None:
         self.transfer_is_ratelimited = True
