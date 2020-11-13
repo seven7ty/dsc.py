@@ -84,6 +84,15 @@ class Client:
     @staticmethod
     def _error_from_status(code: int) -> Any:
         return correlation.get(code, None)
+    
+    @staticmethod
+    def _format(link: str) -> str:
+        if link.startswith("https://dsc.gg/"):
+            return link[15:]
+        elif link.startswith('dsc.gg/'):
+            return link[7:]
+        else:
+            return link
 
     async def _rate_limit_transfer(self) -> None:
         self.transfer_is_ratelimited = True
@@ -91,7 +100,7 @@ class Client:
         self.transfer_is_ratelimited = False
 
     async def get_link(self, link: Union[str, int]) -> Union[Link, None]:
-        res = await self._ses.get(f"https://dsc.gg/api/link/{link}")
+        res = await self._ses.get(f"https://dsc.gg/api/link/{self._format(link)}")
 
         if res.status == 200:
             return Link(dict(await res.json()))
@@ -152,7 +161,7 @@ class Client:
 
         res = await self._ses.post("https://dsc.gg/api/create",
                                    headers={"contentType": "application/json"},
-                                   json={"link": link, "redirect": redirect, "type": link_type.lower(),
+                                   json={"link": self._format(link), "redirect": redirect, "type": link_type.lower(),
                                          "token": self._token})
         if res.status != 200:
             if (err := self._error_from_status(res.status)) is not None:
@@ -168,7 +177,7 @@ class Client:
 
         res = await self._ses.post("https://dsc.gg/api/update",
                                    headers={"contentType": "application/json"},
-                                   json={"link": link, "redirect": redirect, "type": link_type.lower(),
+                                   json={"link": self._format(link), "redirect": redirect, "type": link_type.lower(),
                                          "token": self._token})
 
         if res.status != 200:
@@ -182,7 +191,7 @@ class Client:
 
         res = await self._ses.post("https://dsc.gg/api/delete",
                                    headers={"contentType": "application/json"},
-                                   json={"link": link, "token": self._token})
+                                   json={"link": self._format(link), "token": self._token})
 
         if res.status != 200:
             if (err := self._error_from_status(res.status)) is not None:
@@ -198,7 +207,7 @@ class Client:
         self._has_token()
 
         res = await self._ses.post("https://dsc.gg/api/transfer",
-                                   json={"link": link, "comments": comments, "transfer": str(user_id),
+                                   json={"link": self._format(link), "comments": comments, "transfer": str(user_id),
                                          "token": self._token}, headers={"contentType": "application/json"})
 
         if res.status != 200:
