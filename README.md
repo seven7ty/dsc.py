@@ -54,7 +54,7 @@ links = asyncio.get_event_loop().run_until_complete(client.top_links())
 
 #### Fetch links
 
-This method is a little different. It gives you access to the entire dsc.gg link database, but you can only request one page at a time (they are in no particular order). To specify a page, simply pass an integer as a method argument and voila!
+This method is a little different. It gives you access to the entire dsc.gg link database, but you can only request one page at a time (the links are in no particular order, pages start at index 1). To specify a page, simply pass an integer as a method argument and voila!
 
 ```py
 import dsc
