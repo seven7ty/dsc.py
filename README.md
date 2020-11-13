@@ -110,11 +110,14 @@ import asyncio
 
 client = dsc.Client("YOUR DISCORD OAuth TOKEN") # If you're using a Bearer token, pass in "bearer=True" as well
 
-asyncio.get_event_loop().run_until_complete(client.create_link(link="mycoolthing", redirect="https://mycoolbotinvite.gg", link_type="bot")) 
+asyncio.get_event_loop().run_until_complete(client.create_link(link="mycoolserver",
+                                                               redirect="https://discord.gg/3e5fwpA",
+                                                               link_type="server")) 
+
 
 # link_type passed above specifies what kind of link it is, it has to be lowercase and one of these - [bot, server, template]
 
-# The code above will create a link dsc.gg/mycoolbot that leads to https://mycoolbotinvite.gg on your account
+# The code above will create a link dsc.gg/mycoolserver that leads to https://discord.gg/3e5fwpA on your account
 ```
 
 #### Update a link
@@ -127,7 +130,9 @@ import asyncio
 
 client = dsc.Client("YOUR DISCORD OAuth TOKEN") # If you're using a Bearer token, pass in "bearer=True" as well
 
-asyncio.get_event_loop().run_until_complete(client.update_link(link="mycoolthing", redirect="https://mycoolserverinvite.gg", link_type="server")) 
+asyncio.get_event_loop().run_until_complete(client.update_link(link="mycoolthing",
+                                                               redirect="https://mycoolserverinvite.gg",
+                                                               link_type="server")) 
 
 # The code above will update a link called mycoolthing by setting it's redirect to https://mycoolserverinvite.gg,
 # we pass in link_type to make the API recognize the link is a server
@@ -155,9 +160,12 @@ import asyncio
 
 client = dsc.Client("YOUR DISCORD OAuth TOKEN") # If you're using a Bearer token, pass in "bearer=True" as well
 
-asyncio.get_event_loop().run_until_complete(client.transfer_link(link="mycoolthing", user_id=548803750634979340, comments="Giving it to my friend")) 
+asyncio.get_event_loop().run_until_complete(client.transfer_link(link="mycoolthing",
+                                                                 user_id=548803750634979340,
+                                                                 comments="Giving it to my friend")) 
 
-# The above code will transfer a link called mycoolthing to a user with the ID 548803750634979340,
+
+# The above code will transfer a link called 'mycoolthing' to a user with the ID 548803750634979340,
 # and the comment specifying the reason will be "Giving it to my friend". 
 # The comment is optional, if omitted, the library passes an acceptable "None" by default.
 ```
