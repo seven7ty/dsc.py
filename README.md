@@ -170,6 +170,12 @@ asyncio.get_event_loop().run_until_complete(client.transfer_link(link="mycoolthi
 # The comment is optional, if omitted, the library passes an acceptable "None" by default.
 ```
 
+## Other optional constructor arguments
+- `verbose: bool`
+Indicates whether the library should log events in the console (False by default)
+- `connection_timeout: int` 
+The amount of seconds to wait for a response until closing the connection (15 by default)
+
 ## dsc.py objects
 
 #### User 
@@ -187,7 +193,7 @@ asyncio.get_event_loop().run_until_complete(client.transfer_link(link="mycoolthi
 - recent: tuple (User agent of the latest click: str, timestamp of the latest click: int)
 - redirect: str 
 - owner_id: int
-- click_other: int or None (idk what this is honestly)
+- click_other: int 
 - agents: str 
 - embed: dsc.Embed (See below)
 - raw : dict
