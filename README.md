@@ -186,6 +186,8 @@ The amount of seconds to wait for a response until closing the connection (15 by
 - raw : dict (The raw response from the API)
 
 #### Link
+- name: str (for example if the url is https://dsc.gg/statch , it will return 'statch')
+- url: str 
 - clicks: int
 - unique: int (Unique clicks)
 - type: str
