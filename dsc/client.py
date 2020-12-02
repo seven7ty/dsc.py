@@ -3,7 +3,7 @@
 """
 MIT License
 
-Copyright (c) 2020 Paul Przybyszewski
+Copyright (c) 2020 wulf
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -24,225 +24,277 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-from aiohttp import ClientSession, ClientTimeout
-from .models.link import Link
-from .models.user import User
-from .models.announcement import Announcement
-from .exceptions import (
-    NoToken, Unauthorized,
-    Forbidden, BearerNoToken,
-    BadLinkType, InternalServerError,
-    BadRequest, ServiceUnavailable
-)
-from typing import (Union, List,
-                    NoReturn, Any)
-from asyncio import (sleep, AbstractEventLoop,
-                     get_event_loop)
+from typing import Union, Optional, List, Any
+from aiohttp import ClientSession
+from asyncio import AbstractEventLoop, get_event_loop
+from .models import *
+from .utils import raise_for_status, format_link, match_link_type
+from .exceptions import NotFound
 
-correlation: dict = {
-    400: BadRequest,
-    401: Unauthorized,
-    403: Forbidden,
-    500: InternalServerError,
-    503: ServiceUnavailable,
-    BadRequest: "Something went wrong",
-    Unauthorized: "The Discord OAuth Token you provided was invalid",
-    Forbidden: "You cannot perform this action",
-    InternalServerError: "The API returned a 500 status code",
-    ServiceUnavailable: "The dsc.gg API is currently unavailable"
-}
-
-
-def has_token(func):
-    def _decorator(self, *args, **kwargs):
-        if self._token is None:
-            raise NoToken("You need to pass in a Discord OAuth2 Token into the object constructor to use this function")
-        return func(self, *args, **kwargs)
-
-    return _decorator
-
-
-def validate(link_type: str) -> bool:
-    valid: list = ["server", "bot", "template"]
-    return link_type.lower() in valid
-
-
-def validate_link_type(func):
-    def _decorator(self, *args, **kwargs):
-        if len(args) > 0:
-            if validate(args[2]):
-                return func(self, *args, **kwargs)
-        else:
-            link = kwargs.get("link_type", None)
-            if link is not None and validate(link):
-                return func(self, *args, **kwargs)
-        raise BadLinkType("link_type must be either 'bot', 'server' or 'template'")
-
-    return _decorator
-
-
-def transfer_ratelimit(func):
-    def _decorator(self, *args, **kwargs):
-        if self.transfer_is_ratelimited:
-            self._v(f"Cannot transfer link - ratelimited.")
-            return
-        return func(self, *args, **kwargs)
-
-    return _decorator
+BASE: str = 'https://api.dsc.gg/v2'
 
 
 class Client:
-    def __init__(self, token: str = None, bearer: bool = False, verbose: bool = False,
-                 connection_timeout: Union[int, float, None] = 15):
-        if token is not None:
-            self._token: str = token.strip()
-        else:
-            self._token = None
+    """
+    The main class used to interact with the dsc.gg API.
 
-        self._bearer: bool = bearer
+    Attributes
+    ----------
+    token: :class:`str`
+        The dsc.gg API Token to authenticate with
+    loop: :class:`asyncio.AbstractEventLoop`
+        The optional asyncio event loop to use
+    timeout: Union[:class:`int`, :class:`float`, :class:`NoneType`]
+        The total connection timeout for requests in seconds, 0 or None means no timeout, defaults to 30
+    """
 
-        if self._bearer and self._token is None:
-            raise BearerNoToken("If bearer is True, a token must be passed into the constructor")
-
-        if self._bearer and self._token[:7] != "Bearer ":
-            self._token: str = "Bearer " + self._token
-
-        self.connection_timeout: Union[int, float, None] = connection_timeout
-        self._loop: AbstractEventLoop = get_event_loop()
-        self._ses: ClientSession = ClientSession(
-            loop=self._loop,
-            timeout=ClientTimeout(
-                total=self.connection_timeout if self.connection_timeout >= 0 or self.connection_timeout is None else 15))
-        self.transfer_is_ratelimited: bool = False
-        self._verbose: bool = verbose
+    def __init__(self, token: str, loop: AbstractEventLoop = get_event_loop(), timeout: Union[int, float, None] = 30):
+        self.loop: AbstractEventLoop = loop if isinstance(loop, AbstractEventLoop) else get_event_loop()
+        self._ses: ClientSession = ClientSession(timeout=timeout,
+                                                 headers={"Authorization": f"<{token}>"},
+                                                 loop=self.loop)
 
     @staticmethod
-    def _raise_from_status(code: int) -> Any:
-        return correlation.get(code, None)
+    def insert_embed_fields(body: dict, embed: Embed) -> dict:
+        """
+        Inserts attributes of the :class:`dsc.Embed` object into the passed dictionary.
 
-    @staticmethod
-    def _format(link: str) -> str:
-        if link.startswith("https://dsc.gg/"):
-            return link[15:]
-        elif link.startswith('dsc.gg/'):
-            return link[7:]
-        return link
+        Parameters
+        ----------
+        body: :class:`dict`
+            The dict to update with new values
+        embed: :class:`dsc.Embed`
+            The embed object
 
-    async def _rate_limit_transfer(self) -> None:
-        self.transfer_is_ratelimited = True
-        await sleep(300)
-        self.transfer_is_ratelimited = False
+        Returns
+        -------
+        :class:`dict`
+            The updated body dictionary
+        """
 
-    async def get_link(self, link: Union[str, int]) -> Union[Link, None]:
-        res = await self._ses.get(f"https://dsc.gg/api/link/{self._format(link)}")
+        attrs: dict = {
+            'title': 'meta_title',
+            'description': 'meta_description',
+            'color': 'meta_color',
+            'image': 'meta_image'
+        }
 
-        if res.status == 200:
-            data = dict(await res.json())
-            data["link"] = link
-            return Link(data=data)
+        for k, v in attrs.items():
+            if (a := getattr(embed, k, None)) is not None:
+                body[v]: Any = a
 
-        self._v(f"Couldn't fetch link '{link}'")
-        return None
+        return body
 
-    async def get_links(self, user_id: Union[int, str]) -> Union[List[Link], List]:
-        res = await self._ses.get(f"https://dsc.gg/api/links/{user_id}")
+    async def get_user(self, user_id: int) -> Union[User, None]:
+        """|coro|
 
-        if res.status == 200:
-            return [Link(data=dict(link)) for link in list(await res.json())]
+        Get a dsc.gg user.
 
-        self._v(f"Couldn't fetch links for user ID '{user_id}', returning an empty list")
-        return []
+        Parameters
+        ----------
+        user_id: :class:`int`
+            The Discord ID of the user you want to fetch
 
-    async def top_links(self) -> Union[List[Link], List]:
-        res = await self._ses.get("https://dsc.gg/api/top-links")
+        Returns
+        -------
+        Union[:class:`dsc.User`, None]
+            The user object just fetched, or None if not found
 
-        if res.status == 200:
-            return [Link(data=dict(link)) for link in list(await res.json())]
+        Raises
+        ------
+        dsc.Unauthorized
+            The token passed was invalid
+        dsc.Forbidden
+            Attempted to access premium features or the token is invalid
+        dsc.BadRequest
+            The arguments passed are malformed
+        dsc.RequestEntityTooLarge
+            The passed link slug or password is too long
+        """
 
-        self._v("Couldn't fetch top links, returning an empty list")
-        return []
-
-    async def fetch_links(self, page: int) -> Union[List[Link], List]:
-        res = await self._ses.get(f"https://dsc.gg/api/all-links?page={page if page > 0 else 1}")
-
-        if res.status == 200 and (_ := await res.text()).lower() != "none":
-            return [Link(data=dict(link)) for link in list(await res.json())]
-
-        self._v("Couldn't fetch links, returning an empty list")
-        return []
-
-    async def get_user(self, user_id: Union[int, str]) -> Union[User, None]:
-        res = await self._ses.get(f"https://dsc.gg/api/info/{user_id}")
+        res = await self._ses.get(url=BASE + f"/user/{user_id}")
 
         if res.status == 200:
             return User(data=dict(await res.json()))
+        try:
+            raise_for_status(status=res.status)
+        except NotFound:
+            return None
 
-        self._v(f"Couldn't fetch user with the ID '{user_id}'")
-        return None
+    async def get_link(self, link: str) -> Union[Link, None]:
+        """|coro|
 
-    async def get_announcements(self, user_id: Union[int, str]) -> Union[List[Announcement], List]:
-        res = await self._ses.get(f"https://dsc.gg/api/announcements/{user_id}")
+        Get a dsc.gg link.
+
+        Parameters
+        ----------
+        link: :class:`str`
+            The link to search for, can be the slug or the whole link.
+
+        Returns
+        -------
+        Union[:class:`dsc.Link`, None]
+            The link object just fetched, or None if not found
+
+        Raises
+        ------
+        dsc.Unauthorized
+            The token passed was invalid
+        dsc.Forbidden
+            Attempted to access premium features or the token is invalid
+        dsc.BadRequest
+            The arguments passed are malformed
+        dsc.RequestEntityTooLarge
+            The passed link slug or password is too long
+        """
+
+        res = await self._ses.get(url=BASE + f"/link/{format_link(link=link)}")
 
         if res.status == 200:
-            return list([Announcement(data=dict(a)) for a in list(await res.json())])
+            return Link(data=dict(await res.json()))
 
-        self._v(f"Couldn't fetch announcements for user ID '{user_id}'")
-        return []
+        try:
+            raise_for_status(status=res.status)
+        except NotFound:
+            return None
 
-    @has_token
-    @validate_link_type
-    async def create_link(self, link: Union[str, int], redirect: str, link_type: str) -> NoReturn:
-        res = await self._ses.post("https://dsc.gg/api/create",
-                                   headers={"contentType": "application/json"},
-                                   json={"link": self._format(link), "redirect": redirect, "type": link_type.lower(),
-                                         "token": self._token})
-        if res.status != 200:
-            if (err := self._raise_from_status(res.status)) is not None:
-                raise err(correlation.get(err))
-
-        self._v(f"Link '{link}' created.")
-
-    @has_token
-    @validate_link_type
-    async def update_link(self, link: Union[str, int], redirect: str, link_type: str) -> NoReturn:
-        res = await self._ses.post("https://dsc.gg/api/update",
-                                   headers={"contentType": "application/json"},
-                                   json={"link": self._format(link), "redirect": redirect, "type": link_type.lower(),
-                                         "token": self._token})
-
-        if res.status != 200:
-            if (err := self._raise_from_status(res.status)) is not None:
-                raise err(correlation.get(err))
-
-        self._v(f"Link '{link}' updated.")
-
-    @has_token
-    async def delete_link(self, link: Union[str, int]) -> NoReturn:
-        res = await self._ses.post("https://dsc.gg/api/delete",
-                                   headers={"contentType": "application/json"},
-                                   json={"link": self._format(link), "token": self._token})
-
-        if res.status != 200:
-            if (err := self._raise_from_status(res.status)) is not None:
-                raise err(correlation.get(err))
-
-        self._v(f"Link '{link}' deleted.")
-
-    @has_token
-    @transfer_ratelimit
-    async def transfer_link(self, link: Union[str, int], user_id: Union[str, int], comments: str = "None") -> NoReturn:
-        res = await self._ses.post("https://dsc.gg/api/transfer",
-                                   json={"link": self._format(link), "comments": comments, "transfer": str(user_id),
-                                         "token": self._token}, headers={"contentType": "application/json"})
-
-        if res.status != 200:
-            if (err := self._raise_from_status(res.status)) is not None:
-                raise err(correlation.get(err))
+    async def search(self, query: str, limit: Optional[int] = None) -> Union[List[Link], list]:
+        if limit is None:
+            res = await self._ses.get(url=BASE + f"/search/{query}")
         else:
-            self._v(f"Successful transfer to user ID '{user_id}' - 5 minute ratelimit")
-            self._loop.create_task(self._rate_limit_transfer())
+            res = await self._ses.get(url=BASE + f"/search/{query}", json={"limit": int(limit)})
 
-    def _v(self, msg: str) -> NoReturn:
-        if self._verbose:
-            print(msg)
+        try:
+            raise_for_status(status=res.status)
+            return list([Link(data=link) for link in list(await res.json())])
+        except NotFound:
+            return []
 
+    async def create_link(self, link: str, redirect: str, embed: Optional[Embed] = None, password: Optional[str] = None,
+                          unlisted: bool = False) -> None:
+        """|coro|
+
+        Create a dsc.gg link.
+
+        Parameters
+        ----------
+        link: :class:`str`
+            The slug or full link that should be created
+        redirect: :class:`str`
+            The redirect that should be bound to this link
+        embed: Optional[:class:`dsc.Embed`]
+            The embed to use for the link
+        password: Optional[:class:`str`]
+            The password restricting access to the link
+        unlisted: :class:`bool`
+            If the link shouldn't be listed; defaults to False
+
+        Raises
+        ------
+        dsc.Unauthorized
+            The token passed was invalid
+        dsc.Forbidden
+            Attempted to access premium features or the token is invalid
+        dsc.BadRequest
+            The arguments passed are malformed
+        dsc.RequestEntityTooLarge
+            The passed link slug or password is too long
+        """
+
+        link: str = format_link(link=link)
+        matched_type: tuple = match_link_type(link=link)
+        body: dict = {"link": link, "type": matched_type[1], "redirect": redirect}
+
+        if embed is not None:
+            if not isinstance(embed, Embed):
+                raise TypeError(f"Embed must be type 'dsc.Embed, got '{embed.__class__.__name__}'")
+
+            body: dict = self.insert_embed_fields(body=body, embed=embed)
+
+        if password is not None:
+            body['password']: str = password
+        if unlisted is True:
+            body['unlisted']: bool = True
+
+        res = await self._ses.post(url=BASE + f'/link/{link}', json=body)
+        raise_for_status(status=res.status)
+
+    async def update_link(self, link: str, redirect: Optional[str] = None, embed: Optional[Embed] = None,
+                          password: Optional[str] = None,
+                          unlisted: bool = False) -> None:
+        """|coro|
+
+        Update a dsc.gg link.
+
+        Parameters
+        ----------
+        link: :class:`str`
+            The slug or full link leading to the one being updated
+        redirect: Optional[:class:`str`]
+            The redirect that should be bound to this link
+        embed: Optional[:class:`dsc.Embed`]
+            The embed to use for the link
+        password: Optional[:class:`str`]
+            The password restricting access to the link
+        unlisted: Optional[:class:`bool`]
+            If the link shouldn't be listed - defaults to False
+
+        Raises
+        ------
+        dsc.Unauthorized
+            The token passed was invalid
+        dsc.Forbidden
+            Attempted to access premium features or the token is invalid
+        dsc.BadRequest
+            The arguments passed are malformed
+        dsc.RequestEntityTooLarge
+            The passed link slug or password is too long
+        dsc.NotFound
+           The passed link slug doesn't exist
+        """
+
+        link: str = format_link(link=link)
+        body: dict = {"link": link}
+
+        if embed is not None:
+            if not isinstance(embed, Embed):
+                raise TypeError(f"Embed must be type 'dsc.Embed, got '{embed.__class__.__name__}'")
+
+            body: dict = self.insert_embed_fields(body=body, embed=embed)
+
+        if password is not None:
+            body['password']: str = password
+        if unlisted is True:
+            body['unlisted']: bool = True
+        if redirect is not None:
+            body['redirect']: str = redirect
+
+        res = await self._ses.patch(url=BASE + f'/link/{link}', json=body)
+        raise_for_status(status=res.status)
+
+    async def delete_link(self, link: str) -> None:
+        """|coro|
+
+        Delete a dsc.gg link.
+
+        Parameters
+        ----------
+        link: :class:`str`
+            The slug or full link leading to the one being deleted
+
+        Raises
+        ------
+        dsc.Unauthorized
+            The token passed was invalid
+        dsc.Forbidden
+            Attempted to access premium features or the token is invalid
+        dsc.BadRequest
+            The arguments passed are malformed
+        dsc.RequestEntityTooLarge
+            The passed link slug or password is too long
+        dsc.NotFound
+           The passed link slug doesn't exist
+        """
+
+        res = await self._ses.delete(url=BASE + f'/link/{link}')
+        raise_for_status(status=res.status)
