@@ -159,10 +159,27 @@ class Client:
             return None
 
     async def search(self, query: str, limit: Optional[int] = None) -> Union[List[Link], list]:
-        if limit is None:
+        """
+        Search the dsc.gg link database.
+
+        Parameters
+        ----------
+        query: :class:`str`
+            The query to execute on the API
+        limit: Optional[:class:`int`]
+            The number of the links to return, returns all if not specified.
+
+        Returns
+        -------
+        List[:class:`dsc.Link`]
+            A list containing the fetched results.
+        """
+
+        if not limit:
             res = await self._ses.get(url=BASE + f"/search/{query}")
         else:
-            res = await self._ses.get(url=BASE + f"/search/{query}", json={"limit": int(limit)})
+
+            res = await self._ses.get(url=BASE + f"/search/{query}?limit={limit}")
 
         try:
             raise_for_status(status=res.status)
