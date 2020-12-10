@@ -78,7 +78,7 @@ class User:
         self.id: int = int(data.get('_id'))
         self.premium: bool = data.get('premium', False)
         self.verified: bool = data.get('verified', False)
-        self.joined_at: datetime = datetime.fromtimestamp(int(data.get('joined_at')))
+        self.joined_at: datetime = datetime.utcfromtimestamp(int(data.get('joined_at')))
         self.staff: bool = data.get('staff', False)
 
     def to_dict(self) -> dict:
@@ -92,7 +92,7 @@ class User:
         """
 
         result: dict = {
-            key[:]: getattr(self, key)
+            key: getattr(self, key)
             for key in self.__slots__
             if key[0] != '_' and hasattr(self, key)
         }
@@ -103,7 +103,7 @@ class User:
         return self.id
 
     def __eq__(self, other: Any) -> bool:
-        return isinstance(other, User) and self.__repr__() == other.__repr__()
+        return isinstance(other, User) and self.__repr__() == repr(other)
 
     def __ne__(self, other: Any) -> bool:
         return not self.__eq__(other)
@@ -168,7 +168,7 @@ class Link:
         self.owner_id: int = data.get('owner', None)
         self.editors: Union[List[int], list] = list(data.get('editors', []))
         self.redirect: str = data.get('redirect', None)
-        self.created_at: datetime = datetime.fromtimestamp(int(data.get('created_at')))
+        self.created_at: datetime = datetime.utcfromtimestamp(int(data.get('created_at')))
         self.unlisted: bool = data.get('unlisted', False)
         self.embed: Embed = Embed.from_dict(dict(data))
         self.type: str = data.get('type', None)
@@ -184,7 +184,7 @@ class Link:
         """
 
         result: dict = {
-            key[:]: getattr(self, key)
+            key: getattr(self, key)
             for key in self.__slots__
             if key[0] != '_' and hasattr(self, key)
         }
@@ -201,16 +201,18 @@ class Link:
         return self.slug
 
     def __eq__(self, other: Any) -> bool:
-        return isinstance(other, Link) and self.__repr__() == other.__repr__()
+        return isinstance(other, Link) and self.__repr__() == repr(other)
 
     def __ne__(self, other: Any) -> bool:
         return not self.__eq__(other)
 
     def __repr__(self) -> str:
-        attrs: dict = {}
-        for s in self.__slots__:
-            v: Any = repr(getattr(self, s))
-            attrs[s]: Any = v
+        attrs: dict = {
+            key: repr(getattr(self, key))
+            for key in self.__slots__
+            if key[0] != '_' and hasattr(self, key)
+        }
+
         return '<Link %s>' % ', '.join([f'{k}={v}' for k, v in attrs.items()])
 
 
@@ -250,7 +252,7 @@ class Embed:
         self.image: str = kwargs.get('image', None)
         if type(c := kwargs.get('color', None)) is Union[str, int]:
             self.color: Color = Color(c)
-        elif type(c) is Color:
+        elif isinstance(c, Color):
             self.color: Color = c
         else:
             raise TypeError(f"Expected color to be 'int', 'str' or 'dsc.Colour' - got {c.__class__.__name__}")
@@ -293,7 +295,7 @@ class Embed:
         """
 
         result: dict = {
-            key[:]: getattr(self, key)
+            key: getattr(self, key)
             for key in self.__slots__
             if key[0] != '_' and hasattr(self, key)
         }
@@ -304,13 +306,13 @@ class Embed:
         return self.title
 
     def __eq__(self, other: Any) -> bool:
-        return isinstance(other, Embed) and self.__repr__() == other.__repr__()
+        return isinstance(other, Embed) and self.__repr__() == repr(other)
 
     def __ne__(self, other: Any) -> bool:
         return not self.__eq__(other)
 
     def __repr__(self) -> str:
-        return '<Embed title={title}, description={description}, image={image}, color={color}>' \
+        return 'Embed(title={title}, description={description}, image={image}, color={color})' \
             .format(title=repr(self.title),
                     description=repr(self.description),
                     image=repr(self.image),
@@ -371,7 +373,7 @@ class Colour:
         return '#{:0>6x}'.format(self.value)
 
     def __repr__(self):
-        return '<Colour value=%s>' % self.value
+        return 'Colour(value=%s)' % self.value
 
     def __hash__(self):
         return hash(self.value)

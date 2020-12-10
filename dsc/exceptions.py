@@ -24,6 +24,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+__all__ = (
+    'Unauthorized',
+    'BadRequest',
+    'RequestEntityTooLarge',
+    'Forbidden',
+    'NotFound',
+    'RateLimitedError'
+)
+
 
 class Unauthorized(ConnectionRefusedError):
     """The token passed is invalid"""
@@ -43,3 +52,7 @@ class Forbidden(ConnectionRefusedError):
 
 class NotFound(AttributeError):
     """The link couldn't be found"""
+
+
+class RateLimitedError(RuntimeError):
+    """A long rate-limit has been exhausted."""

@@ -24,9 +24,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-from .exceptions import *
 from enum import Enum
-from typing import NoReturn
 
 
 class LinkType(Enum):
@@ -54,40 +52,6 @@ def match_link_type(link: str) -> tuple:
         return LinkType(link_f)
     except ValueError:
         return link, 'link'
-
-
-def raise_for_status(status: int) -> NoReturn:
-    """
-    Raise the adequate error from the passed status code.
-
-    Raises
-    ------
-    dsc.Unauthorized
-        The token passed was invalid
-    dsc.Forbidden
-        Attempted to access premium features or the token is invalid
-    dsc.BadRequest
-        The arguments passed are malformed
-    dsc.RequestEntityTooLarge
-        The passed link slug or password is too long
-    dsc.NotFound
-        The passed link slug doesn't exist
-    """
-
-    correlation: dict = {
-        401: Unauthorized,
-        400: BadRequest,
-        413: RequestEntityTooLarge,
-        403: Forbidden,
-        404: NotFound,
-        Unauthorized: "The token passed is invalid",
-        Forbidden: "Attempted to access premium features or the token is invalid",
-        BadRequest: "The arguments passed are malformed",
-        RequestEntityTooLarge: "The passed link slug or password is too long",
-        NotFound: "The link doesn't exist"
-    }
-    if (e := correlation.get(status, None)) is not None:
-        raise e(correlation.get(e))
 
 
 def format_link(link: str) -> str:
