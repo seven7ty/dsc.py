@@ -56,8 +56,7 @@ correlation: dict = {
 def has_token(func):
     def _decorator(self, *args, **kwargs):
         if self._token is None:
-            raise NoToken(
-                "You need to pass in a Discord OAuth2 Token into the object constructor to use this function")
+            raise NoToken("You need to pass in a Discord OAuth2 Token into the object constructor to use this function")
         return func(self, *args, **kwargs)
 
     return _decorator
@@ -77,8 +76,7 @@ def validate_link_type(func):
             link = kwargs.get("link_type", None)
             if link is not None and validate(link):
                 return func(self, *args, **kwargs)
-        raise BadLinkType(
-            "link_type must be either 'bot', 'server' or 'template'")
+        raise BadLinkType("link_type must be either 'bot', 'server' or 'template'")
 
     return _decorator
 
@@ -104,8 +102,7 @@ class Client:
         self._bearer: bool = bearer
 
         if self._bearer and self._token is None:
-            raise BearerNoToken(
-                "If bearer is True, a token must be passed into the constructor")
+            raise BearerNoToken("If bearer is True, a token must be passed into the constructor")
 
         if self._bearer and self._token[:7] != "Bearer ":
             self._token: str = "Bearer " + self._token
@@ -153,8 +150,7 @@ class Client:
         if res.status == 200:
             return [Link(data=dict(link)) for link in list(await res.json())]
 
-        self._v(
-            f"Couldn't fetch links for user ID '{user_id}', returning an empty list")
+        self._v(f"Couldn't fetch links for user ID '{user_id}', returning an empty list")
         return []
 
     async def top_links(self) -> Union[List[Link], List]:
@@ -243,10 +239,10 @@ class Client:
             if (err := self._raise_from_status(res.status)) is not None:
                 raise err(correlation.get(err))
         else:
-            self._v(
-                f"Successful transfer to user ID '{user_id}' - 5 minute ratelimit")
+            self._v(f"Successful transfer to user ID '{user_id}' - 5 minute ratelimit")
             self._loop.create_task(self._rate_limit_transfer())
 
     def _v(self, msg: str) -> NoReturn:
         if self._verbose:
             print(msg)
+
