@@ -32,8 +32,7 @@ from ..utils import str_bool, int_or_none
 class Link:
     def __init__(self, data: dict):
         if "s_name" not in data:
-            self.embed: Union[Embed, None] = Embed(
-                dict(data.get("embed"))) if "embed" in dict(data) else None
+            self.embed: Union[Embed, None] = Embed(dict(data.get("embed"))) if "embed" in dict(data) else None
         else:
             self.agents: Union[str, None] = data.get("agents", None)
             self.click_other: Union[int, None] = data.get("click_other", None)
@@ -41,13 +40,11 @@ class Link:
                 {"title": data.get("s_name", None), "desc": data.get("desc", None), "color": data.get('color', None),
                  "saying": data.get("saying", None), "image": data.get('image', None)})
         self.name: Union[str, None] = data.get("link", None)
-        self.url: Union[str,
-                        None] = f"https://dsc.gg/{self.name}" if self.name is not None else None
+        self.url: Union[str, None] = f"https://dsc.gg/{self.name}" if self.name is not None else None
         self.type: Union[str, None] = data.get("type", None)
         self.suspended: bool = str_bool(data.get("suspended"))
         self.unique: int = int(data.get("unique", 0))
-        self.recent: tuple = (data.get("recent", None),
-                              int_or_none(data.get("recent_time", None)))
+        self.recent: tuple = (data.get("recent", None), int_or_none(data.get("recent_time", None)))
         self.redirect: Union[str, None] = data.get("redirect", None)
         self.owner_id: Union[int, None] = int_or_none(data.get("owner", None))
         self.clicks: int = int(data.get("clicks", 0))
