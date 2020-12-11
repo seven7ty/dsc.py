@@ -140,6 +140,9 @@ All discord.py built-in color class-methods are here too, ex. `dsc.Color.red()`
 ###### Methods
 - `to_dict()` - Return the object in the form of a dictionary
 
+###### Class methods
+- [just like discord.py](https://discordpy.readthedocs.io/en/latest/api.html?highlight=color#discord.Colour.teal)
+
 
 ### Contributing 
 
