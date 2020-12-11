@@ -24,16 +24,25 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-from typing import Union, Optional, List, Any, NoReturn
-from aiohttp import ClientSession
-from asyncio import AbstractEventLoop, get_event_loop
-from .models import Embed, Link, User
-from .utils import format_link, match_link_type
-from .exceptions import *
-
 __all__ = (
     'Client'
 )
+
+from typing import Optional, List, Any, NoReturn
+from aiohttp import ClientSession, ClientTimeout
+from asyncio import AbstractEventLoop, get_event_loop
+from .models import Embed, Link, User
+from .exceptions import *
+from enum import Enum
+
+
+class LinkType(Enum):
+    """Used to correlate a link with its dsc.gg type"""
+
+    Server = 'https://discord.gg/'
+    Template = 'https://discord.com/template/'
+    Bot = 'https://discord.com/oauth2/'
+
 
 BASE: str = 'https://api.dsc.gg/v2'
 
@@ -48,8 +57,8 @@ class Client:
         The dsc.gg API Token to authenticate with
     loop: :class:`asyncio.AbstractEventLoop`
         The optional asyncio event loop to use
-    timeout: Optional[Union[:class:`int`, :class:`float`]]
-        The total connection timeout for requests in seconds, 0 or None means no timeout; defaults to 30
+    timeout: Optional[:class:`aiohttp.ClientTimeout`]
+        The total connection timeout from this object will be used as the total timeout for the client; defaults to 30
     raise_for_status: :class:`bool`
         Whether or not to raise an exception when a non-positive status is returned; defaults to False.
         Keep in mind that 429 (Rate Limited) errors are raised no matter what.
@@ -58,49 +67,63 @@ class Client:
     """
 
     def __init__(self, key: str, loop: AbstractEventLoop = get_event_loop(),
-                 timeout: Optional[Union[int, float]] = 30, verbose: bool = False, raise_for_status: bool = False):
+                 timeout: Optional[ClientTimeout] = ClientTimeout(total=30), verbose: bool = False,
+                 raise_for_status: bool = False):
+        if not isinstance(timeout, ClientTimeout):
+            timeout = ClientTimeout(total=30)
         self.loop: AbstractEventLoop = loop if isinstance(loop, AbstractEventLoop) else get_event_loop()
         self._ses: ClientSession = ClientSession(timeout=timeout,
-                                                 headers={"Authorization": f"{key}"},
+                                                 headers={"Authorization": key},
                                                  loop=self.loop)
         self.verbose: bool = verbose
         self.__raise_for_status: bool = raise_for_status
 
-    def _raise_for_status(self, status: int) -> NoReturn:
+    @staticmethod
+    def format_link(link: str) -> str:
         """
-        Raise an adequate error from the passed status code.
+        Formats the 'dsc.gg/whatever' links to be only the slug
 
-        Raises
-        ------
-        dsc.Unauthorized
-            The token passed was invalid
-        dsc.Forbidden
-            Attempted to access premium features or the token is invalid
-        dsc.BadRequest
-            The arguments passed are malformed
-        dsc.RequestEntityTooLarge
-            The passed link slug or password is too long
-        dsc.NotFound
-            The passed link slug doesn't exist
+        Parameters
+        ----------
+        link: :class:`str`
+            The link to format
+
+        Returns
+        -------
+        :class:`str`
+            The slug of the passed link
         """
 
-        if self.__raise_for_status:
-            correlation: dict = {
-                401: Unauthorized,
-                400: BadRequest,
-                413: RequestEntityTooLarge,
-                403: Forbidden,
-                404: NotFound,
-                Unauthorized: "The token passed is invalid",
-                Forbidden: "Attempted to access premium features or the token is invalid",
-                BadRequest: "The arguments passed are malformed",
-                RequestEntityTooLarge: "The passed link slug or password is too long",
-                NotFound: "The link doesn't exist"
-            }
-            if (e := correlation.get(status, None)) is not None:
-                raise e(correlation.get(e))
-        elif status == 403:
-            raise Forbidden('Invalid API token passed into the constructor')
+        if link.startswith("https://dsc.gg/"):
+            return link[15:]
+        elif link.startswith('dsc.gg/'):
+            return link[7:]
+        return link
+
+    @staticmethod
+    def match_link_type(link: str) -> str:
+        """
+        Returns the tuple corresponding to the link passed.
+
+        Returns
+        -------
+        :class:`tuple`
+            The tuple with the first item being the invoking pattern, and second being the actual link type
+        """
+
+        cor = {
+            LinkType.Server: 'server',
+            LinkType.Bot: 'bot',
+            LinkType.Template: 'template'
+        }
+        if not link.startswith('https://'):
+            link = 'https://' + link
+        link_f = link[:int(link.rindex('/') + 1)]
+        try:
+            link_type = LinkType(link_f)
+            return cor[link_type]
+        except (KeyError, ValueError):
+            return 'link'
 
     @staticmethod
     def _insert_embed_fields(body: dict, embed: Embed) -> dict:
@@ -128,10 +151,50 @@ class Client:
         }
 
         for k, v in attrs.items():
+            if k == 'color':
+                body[v]: str = str(embed.color)
+                continue
             if (a := getattr(embed, k, None)) is not None:
                 body[v]: Any = a
 
         return body
+
+    async def _raise_for_status(self, response) -> NoReturn:
+        """
+        Raise an adequate error from the passed status code.
+
+        Raises
+        ------
+        dsc.Unauthorized
+            The token passed was invalid
+        dsc.Forbidden
+            Attempted to access premium features or the token is invalid
+        dsc.BadRequest
+            The arguments passed are malformed
+        dsc.RequestEntityTooLarge
+            The passed link slug or password is too long
+        dsc.NotFound
+            The passed link slug doesn't exist
+        """
+
+        json: dict = await response.json()
+        if self.__raise_for_status:
+            correlation: dict = {
+                401: Unauthorized,
+                400: BadRequest,
+                413: RequestEntityTooLarge,
+                403: Forbidden,
+                404: NotFound,
+                Unauthorized: "The token passed is invalid",
+                Forbidden: "Attempted to access premium features or the token is invalid",
+                BadRequest: "The arguments passed are malformed",
+                RequestEntityTooLarge: "The passed link slug or password is too long",
+                NotFound: "The link doesn't exist"
+            }
+            if (e := correlation.get(response.status, None)) is not None:
+                raise e(correlation.get(e) if 'message' not in json else json['message'])
+        elif response.status == 403:
+            raise Forbidden(json['message'])
 
     async def get_user(self, user_id: int) -> Optional[User]:
         """|coro|
@@ -169,7 +232,7 @@ class Client:
         elif res.status == 429:
             raise RateLimitedError('get_user has hit the rate limit, whitelist your application')
         try:
-            self._raise_for_status(status=res.status)
+            await self._raise_for_status(response=res)
         except NotFound:
             return None
 
@@ -201,7 +264,7 @@ class Client:
         """
 
         self.__v(msg='Fetching link \'%s\'...' % link)
-        res = await self._ses.get(url=BASE + f"/link/{format_link(link=link)}")
+        res = await self._ses.get(url=BASE + f"/link/{self.format_link(link=link)}")
 
         if res.status == 200:
             self.__v(msg='Link \'%s\' found.' % link)
@@ -209,7 +272,7 @@ class Client:
         elif res.status == 429:
             raise RateLimitedError('get_link has hit the rate limit, whitelist your application')
         try:
-            self._raise_for_status(status=res.status)
+            await self._raise_for_status(response=res)
         except NotFound:
             return None
 
@@ -237,12 +300,13 @@ class Client:
         if res.status == 429:
             raise RateLimitedError('search has hit the rate limit, whitelist your application')
         try:
-            self._raise_for_status(status=res.status)
+            await self._raise_for_status(response=res)
             return list([Link(data=link) for link in list(await res.json())])
         except NotFound:
             return []
 
-    async def create_link(self, link: str, redirect: str, embed: Optional[Embed] = None, password: Optional[str] = None,
+    async def create_link(self, link: str, redirect: str, embed: Optional[Embed] = None,
+                          password: Optional[str] = None,
                           unlisted: bool = False) -> int:
         """|coro|
 
@@ -272,12 +336,13 @@ class Client:
         dsc.RequestEntityTooLarge
             The passed link slug or password is too long
         dsc.RateLimitedError
-            A long rate limit was exhausted.
+            A rate limit was exhausted.
         """
 
-        link: str = format_link(link=link)
-        matched_type: tuple = match_link_type(link=link)
-        body: dict = {"link": link, "type": matched_type[1], "redirect": redirect}
+        link: str = self.format_link(link=link)
+        if redirect.startswith('https://'):
+            redirect = redirect.replace('https://', '')
+        body: dict = {"type": self.match_link_type(redirect), "redirect": redirect}
 
         if embed is not None:
             if not isinstance(embed, Embed):
@@ -294,8 +359,11 @@ class Client:
         res = await self._ses.post(url=BASE + f'/link/{link}', json=body)
         if res.status == 429:
             raise RateLimitedError('create_link has hit the rate limit, whitelist your application')
-        self._raise_for_status(status=res.status)
-        self.__v(msg='Link \'%s\' created.' % link)
+        await self._raise_for_status(response=res)
+        if res.status == 200:
+            self.__v(msg='Link \'%s\' created.' % link)
+        else:
+            self.__v(msg='failed to create link \'%s\'' % link)
         return res.status
 
     async def update_link(self, link: str, redirect: Optional[str] = None, embed: Optional[Embed] = None,
@@ -331,10 +399,10 @@ class Client:
         dsc.NotFound
             The passed link slug doesn't exist
         dsc.RateLimitedError
-            A long rate limit was exhausted.
+            A rate limit was exhausted.
         """
 
-        link: str = format_link(link=link)
+        link: str = self.format_link(link=link)
         body: dict = {"link": link}
 
         if embed is not None:
@@ -354,7 +422,7 @@ class Client:
         res = await self._ses.patch(url=BASE + f'/link/{link}', json=body)
         if res.status == 429:
             raise RateLimitedError('update_link has hit the rate limit, whitelist your application')
-        self._raise_for_status(status=res.status)
+        await self._raise_for_status(response=res)
         self.__v(msg='Link \'%s\' updated.' % link)
         return res.status
 
@@ -381,14 +449,15 @@ class Client:
         dsc.NotFound
             The passed link slug doesn't exist
         dsc.RateLimitedError
-            A long rate limit was exhausted.
+            A rate limit was exhausted.
         """
 
+        link: str = self.format_link(link=link)
         self.__v(msg='Attempting to delete link \'%s\'...' % link)
         res = await self._ses.delete(url=BASE + f'/link/{link}')
         if res.status == 429:
             raise RateLimitedError('delete_link has hit the rate limit, whitelist your application')
-        self._raise_for_status(status=res.status)
+        await self._raise_for_status(response=res)
         self.__v(msg='Link \'%s\' deleted.' % link)
         return res.status
 

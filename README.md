@@ -41,6 +41,7 @@ print(len(links))
 
 #### Create a link 
 You can get fancy with this one, and create an embed to use with the link, see below.
+Please note that the color will not work, when creating, only when updating a link.
 ##### Create an embed
 ```py 
 embed = dsc.Embed(
@@ -63,9 +64,11 @@ else:
 ```
 
 #### Update a link
-Just like creating, except the link slug has to be an existing link.
+Similar to creating, except the link slug has to be an existing link, there's no need to pass `type` in.  
+Not passing some arguments into the embed will result in updating only these fields and leaving other ones as they are.
 ```py
-await client.update_link('link slug', password='youshallnotpass', unlisted=True)
+updated_embed = dsc.Embed(color=dsc.Color.red())
+await client.update_link('link slug', password='youshallnotpass', unlisted=True, embed=updated_embed)
 ```
 
 #### Delete a link
