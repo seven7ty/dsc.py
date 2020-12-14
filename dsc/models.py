@@ -25,15 +25,88 @@ SOFTWARE.
 """
 
 from datetime import datetime
-from typing import Union, List, Any
+from typing import Union, Any
 from colorsys import hsv_to_rgb
 
 __all__ = (
+    'App',
     'User',
     'Link',
     'Embed',
     'Colour', 'Color'
 )
+
+
+class App:
+    """
+    Represents a dsc.gg developer application.
+
+    .. container:: operations
+
+        .. describe:: x == y
+
+             Checks if two users are equal.
+
+        .. describe:: x != y
+
+             Checks if two users are not equal.
+
+        .. describe:: bool(x)
+
+            Returns whether or not the app is verified (whitelisted).
+
+    Attributes
+    ----------
+    id: :class:`int`
+        The Discord ID of the user
+    owner_id: :class:`int`
+        The Discord user ID of the app's owner
+    created_at: :class:`datetime.datetime`
+        The time at which the app was created
+    verified: :class:`bool`
+        Whether the app is verified or not
+    key: Optional[:class:`str`]
+        The key for the app, present only if you're the owner
+    """
+
+    __slots__ = ('id', 'owner_id', 'created_at', 'verified', 'key')
+
+    def __init__(self, data: dict):
+        self.id: int = data.get('id', None)
+        self.owner_id: int = data.get('owner_id', None)
+        self.created_at: datetime = datetime.utcfromtimestamp(int(data['created_at']) / 1000)  # Fix the timestamp
+        self.verified: bool = data.get('verified', False)
+        self.key: str = data.get('key', None)
+
+    def to_dict(self) -> dict:
+        """
+        Get the :class:`dsc.User` in the form of a :class:`dict`
+
+        Returns
+        -------
+        :class:`dict`
+            The dictionary product of the conversion
+        """
+
+        result: dict = {
+            key: getattr(self, key)
+            for key in self.__slots__
+            if key[0] != '_' and hasattr(self, key)
+        }
+
+        return result
+
+    def __repr__(self) -> str:
+        return '<App id=%s>' % str(self.id)
+
+    def __eq__(self, other) -> bool:
+        return self.__repr__() == repr(other)
+
+    def __ne__(self, other) -> bool:
+        return not self.__eq__(other)
+
+    def __bool__(self) -> bool:
+        return self.verified
 
 
 class User:
@@ -60,26 +133,26 @@ class User:
 
     Attributes
     ----------
-    id :class:`int`
+    id: :class:`int`
         The Discord ID of the user
-    premium :class:`bool`
+    premium: :class:`bool`
         Whether or not the user has premium
-    verified :class:`bool`
+    verified: :class:`bool`
         Whether or not the user is verified
-    staff :class:`bool`
-        Whether or not the user is a staff member
-    joined_at :class:`datetime.datetime`
+    blacklisted: :class:`bool`
+        Whether or not the user is blacklisted
+    joined_at: :class:`datetime.datetime`
         The time at which the account was created
     """
 
-    __slots__ = ('id', 'premium', 'verified', 'joined_at', 'staff')
+    __slots__ = ('id', 'premium', 'verified', 'joined_at', 'blacklisted')
 
     def __init__(self, data: dict):
-        self.id: int = int(data.get('_id'))
+        self.id: int = int(data.get('id'))
         self.premium: bool = data.get('premium', False)
         self.verified: bool = data.get('verified', False)
         self.joined_at: datetime = datetime.utcfromtimestamp(int(data.get('joined_at')))
-        self.staff: bool = data.get('staff', False)
+        self.blacklisted: bool = data.get('blacklisted', False)
 
     def to_dict(self) -> dict:
         """
@@ -143,8 +216,10 @@ class Link:
 
     Attributes
     ----------
-    slug :class:`str`
-        The link slug, ex. if the link is 'dsc.gg/statch' it'll be 'statch'
+    id :class:`str`
+        The link id (slug), ex. if the link is 'dsc.gg/statch' it'll be 'statch'
+    domain :class:`str`
+        The domain of the link
     owner_id :class:`int`
         The Discord ID of the link's owner
     editors :class:`list`
@@ -153,25 +228,34 @@ class Link:
         The final link the dsc.gg one leads to
     created_at :class:`datetime.datetime`
         The time the link was created
+    created_at :class:`datetime.datetime`
+        The last time the link was bumped
     unlisted :class:`bool`
         If the link is hidden from top pages and discovery
+    blacklisted :class:`bool`
+        :class:`bool` signifying if the link is blacklisted
     type :class:`str`
-        The type of the link, can be either 'server', 'bot', 'template' (Free users) or 'link' (Premium users)
+        The type of the link, can be either 'server' or 'bot'
     embed :class:`dsc.Embed`
         The embed of the link
     """
 
-    __slots__ = ('slug', 'owner_id', 'editors', 'redirect', 'created_at', 'unlisted', 'type', 'embed')
+    __slots__ = (
+        'id', 'redirect', 'created_at', 'bumped_at', 'unlisted', 'disabled', 'type', 'embed',
+        'domain', 'owner_id')
 
     def __init__(self, data: dict):
-        self.slug: str = data.get('_id', None)
+        bump = data.get('bumped_at', None)
+        self.id: str = data.get('id', None)
         self.owner_id: int = data.get('owner', None)
-        self.editors: Union[List[int], list] = list(data.get('editors', []))
         self.redirect: str = data.get('redirect', None)
         self.created_at: datetime = datetime.utcfromtimestamp(int(data.get('created_at')))
+        self.bumped_at: datetime = datetime.utcfromtimestamp(int(bump)) if bump else None
         self.unlisted: bool = data.get('unlisted', False)
-        self.embed: Embed = Embed.from_dict(dict(data))
+        self.disabled: bool = data.get('disabled', False)
+        self.embed: Embed = Embed.from_dict(dict(data)['meta'])
         self.type: str = data.get('type', None)
+        self.domain: str = data.get('domain', None)
 
     def to_dict(self) -> dict:
         """
@@ -198,7 +282,7 @@ class Link:
         return self.owner_id
 
     def __str__(self) -> str:
-        return self.slug
+        return self.id
 
     def __eq__(self, other: Any) -> bool:
         return isinstance(other, Link) and self.__repr__() == repr(other)
@@ -246,7 +330,7 @@ class Embed:
         The color of the embed
     """
 
-    __slots__ = ('title', 'description', 'color', 'image')
+    __slots__ = ('title', 'description', 'color', 'image', 'saying')
 
     def __init__(self, **kwargs):
         self.image: str = kwargs.get('image', None)
@@ -277,10 +361,11 @@ class Embed:
 
         self: cls = cls.__new__(cls)
 
-        self.image = data.get('image', None) or data.get('meta_image', None)
-        self.color = data.get('color', None) or data.get('meta_color', None)
-        self.description = data.get('description', None) or data.get('meta_description', None)
-        self.title = data.get('title', None) or data.get('meta_title', None)
+        self.saying = data.get('saying', None)
+        self.image = data.get('image', None)
+        self.color = data.get('color', None)
+        self.description = data.get('description', None)
+        self.title = data.get('title', None)
 
         return self
 

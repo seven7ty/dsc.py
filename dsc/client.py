@@ -24,27 +24,21 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+from typing import Optional, List, NoReturn, Union
+from aiohttp import ClientSession, ClientTimeout
+from asyncio import AbstractEventLoop, get_event_loop
+from .models import Embed, Link, User, Color, App
+from .enums import *
+
 __all__ = (
     'Client'
 )
 
-from typing import Optional, List, Any, NoReturn
-from aiohttp import ClientSession, ClientTimeout
-from asyncio import AbstractEventLoop, get_event_loop
-from .models import Embed, Link, User
-from .exceptions import *
-from enum import Enum
-
-
-class LinkType(Enum):
-    """Used to correlate a link with its dsc.gg type"""
-
-    Server = 'https://discord.gg/'
-    Template = 'https://discord.com/template/'
-    Bot = 'https://discord.com/oauth2/'
-
-
 BASE: str = 'https://api.dsc.gg/v2'
+
+
+class DSCGGError(RuntimeError):
+    pass
 
 
 class Client:
@@ -59,16 +53,12 @@ class Client:
         The optional asyncio event loop to use
     timeout: Optional[:class:`aiohttp.ClientTimeout`]
         The total connection timeout from this object will be used as the total timeout for the client; defaults to 30
-    raise_for_status: :class:`bool`
-        Whether or not to raise an exception when a non-positive status is returned; defaults to False.
-        Keep in mind that 429 (Rate Limited) errors are raised no matter what.
     verbose: :class:`bool`
         Whether or not to log things that happen under the hood to the console; defaults to False
     """
 
     def __init__(self, key: str, loop: AbstractEventLoop = get_event_loop(),
-                 timeout: Optional[ClientTimeout] = ClientTimeout(total=30), verbose: bool = False,
-                 raise_for_status: bool = False):
+                 timeout: Optional[ClientTimeout] = ClientTimeout(total=30), verbose: bool = False):
         if not isinstance(timeout, ClientTimeout):
             timeout = ClientTimeout(total=30)
         self.loop: AbstractEventLoop = loop if isinstance(loop, AbstractEventLoop) else get_event_loop()
@@ -76,7 +66,6 @@ class Client:
                                                  headers={"Authorization": key},
                                                  loop=self.loop)
         self.verbose: bool = verbose
-        self.__raise_for_status: bool = raise_for_status
 
     @staticmethod
     def format_link(link: str) -> str:
@@ -143,58 +132,30 @@ class Client:
             The updated body dictionary
         """
 
-        attrs: dict = {
-            'title': 'meta_title',
-            'description': 'meta_description',
-            'color': 'meta_color',
-            'image': 'meta_image'
-        }
-
-        for k, v in attrs.items():
-            if k == 'color':
-                body[v]: str = str(embed.color)
+        for key, value in embed.__dict__.items():
+            if isinstance(value, Color):
+                body['meta'][key] = str(value)
                 continue
-            if (a := getattr(embed, k, None)) is not None:
-                body[v]: Any = a
+            body['meta'][key] = value
 
         return body
 
-    async def _raise_for_status(self, response) -> NoReturn:
+    @staticmethod
+    async def _raise_for_status(response: dict) -> NoReturn:
         """
         Raise an adequate error from the passed status code.
 
-        Raises
-        ------
-        dsc.Unauthorized
-            The token passed was invalid
-        dsc.Forbidden
-            Attempted to access premium features or the token is invalid
-        dsc.BadRequest
-            The arguments passed are malformed
-        dsc.RequestEntityTooLarge
-            The passed link slug or password is too long
-        dsc.NotFound
-            The passed link slug doesn't exist
+        Parameters
+        ----------
+        response: :class:`dict`
+            The response json.
         """
 
-        json: dict = await response.json()
-        if self.__raise_for_status:
-            correlation: dict = {
-                401: Unauthorized,
-                400: BadRequest,
-                413: RequestEntityTooLarge,
-                403: Forbidden,
-                404: NotFound,
-                Unauthorized: "The token passed is invalid",
-                Forbidden: "Attempted to access premium features or the token is invalid",
-                BadRequest: "The arguments passed are malformed",
-                RequestEntityTooLarge: "The passed link slug or password is too long",
-                NotFound: "The link doesn't exist"
-            }
-            if (e := correlation.get(response.status, None)) is not None:
-                raise e(correlation.get(e) if 'message' not in json else json['message'])
-        elif response.status == 403:
-            raise Forbidden(json['message'])
+        code = str(response['code']).lower()
+        enum = getattr(ResponseCodes, code)
+
+        if not str(enum.value.code).startswith('2'):
+            raise DSCGGError(f'{enum.value.code} ({code}): {enum.value.meaning}')
 
     async def get_user(self, user_id: int) -> Optional[User]:
         """|coro|
@@ -223,18 +184,16 @@ class Client:
             The passed link slug or password is too long
         """
 
-        self.__v(msg='Fetching user with ID %s...' % str(user_id))
+        self.__v(message='Fetching user with ID %s...' % str(user_id))
         res = await self._ses.get(url=BASE + f"/user/{user_id}")
+        res_ = await res.json()
 
-        if res.status == 200:
-            self.__v(msg='User with the ID %s was found.' % str(user_id))
-            return User(data=dict(await res.json()))
-        elif res.status == 429:
-            raise RateLimitedError('get_user has hit the rate limit, whitelist your application')
-        try:
-            await self._raise_for_status(response=res)
-        except NotFound:
-            return None
+        if res.status == 200 and bool(res_['success']):
+            self.__v(message='User with the ID %s was found.' % str(user_id))
+            return User(data=dict(res_)['payload'])
+        if res.status != 404:
+            await self._raise_for_status(response=res_)
+        return None
 
     async def get_link(self, link: str) -> Optional[Link]:
         """|coro|
@@ -263,20 +222,111 @@ class Client:
             The passed link slug or password is too long
         """
 
-        self.__v(msg='Fetching link \'%s\'...' % link)
+        self.__v(message='Fetching link \'%s\'...' % link)
         res = await self._ses.get(url=BASE + f"/link/{self.format_link(link=link)}")
 
         if res.status == 200:
-            self.__v(msg='Link \'%s\' found.' % link)
-            return Link(data=dict(await res.json()))
-        elif res.status == 429:
-            raise RateLimitedError('get_link has hit the rate limit, whitelist your application')
-        try:
-            await self._raise_for_status(response=res)
-        except NotFound:
-            return None
+            self.__v(message='Link \'%s\' found.' % link)
+            return Link(data=dict(await res.json())['payload'])
+        if res.status != 404:
+            await self._raise_for_status(response=await res.json())
+        return None
 
-    async def search(self, query: str, limit: Optional[int] = None) -> List[Link]:
+    async def get_user_links(self, user_id: int) -> List[Link]:
+        """
+        Returns all of the user's links.
+
+        Parameters
+        ----------
+        user_id: :class:`int`
+            The Discord user ID of the user to return links for.
+
+        Returns
+        -------
+        List[:class:`dsc.Link`]
+            A list of the links belonging to the user.
+        """
+
+        self.__v('Attempting to fetch links for user with ID \'%s\'...' % str(user_id))
+        res = await self._ses.get(url=BASE + f'/user/{user_id}/links')
+
+        if res.status == 200:
+            self.__v('Returning links found...')
+            return list([Link(link) for link in dict(await res.json())['payload']])
+        if res.status != 404:
+            await self._raise_for_status(response=await res.json())
+        return []
+
+    async def get_user_apps(self, user_id: int) -> List[App]:
+        """
+        Returns all of the user's apps.
+
+        Parameters
+        ----------
+        user_id: :class:`int`
+            The Discord user ID of the user to return apps for.
+
+        Returns
+        -------
+        List[:class:`dsc.Link`]
+            A list of apps belonging to the user.
+        """
+
+        self.__v('Attempting to fetch apps for a user with ID \'%s\'...' % str(user_id))
+        res = await self._ses.get(url=BASE + f'/user/{user_id}/links')
+
+        if res.status == 200:
+            self.__v('Returning apps found...')
+            return list([App(app) for app in dict(await res.json())['payload']])
+        if res.status != 404:
+            await self._raise_for_status(response=await res.json())
+        return []
+
+    async def get_app(self, app_id: Union[int, str]) -> Optional[App]:
+        """
+        Get a dsc.gg developer app.
+
+        Parameters
+        ----------
+        app_id: Union[:class:`str`, :class:`int`]
+            The id of the app to get.
+
+        Returns
+        -------
+        Optional[:class:`dsc.App`]
+        """
+
+        self.__v(message='Fetching app with id \'%s\'...' % str(app_id))
+        res = await self._ses.get(url=BASE + f"/app/{app_id}")
+
+        if res.status == 200:
+            self.__v(message='App with id \'%s\' found.' % str(app_id))
+            return App(data=dict(await res.json())['payload'])
+        if res.status != 404:
+            await self._raise_for_status(response=await res.json())
+        return None
+
+    async def get_top_links(self) -> List[Link]:
+        """
+        Get top links from dsc.gg.
+
+        Returns
+        -------
+        List[:class:`dsc.Link`]
+            The top links requested.
+        """
+
+        self.__v(message='Fetching top links...')
+        res = await self._ses.get(url=BASE + '/top')
+
+        if res.status == 200:
+            self.__v(message='Successfully fetched top links.')
+            return list([Link(link) for link in dict(await res.json())['payload']])
+        if res.status != 404:
+            await self._raise_for_status(response=await res.json())
+        return []
+
+    async def search(self, query: str, limit: Optional[int] = None, link_type: Optional[str] = None) -> List[Link]:
         """
         Search the dsc.gg link database.
 
@@ -291,19 +341,26 @@ class Client:
         -------
         List[:class:`dsc.Link`]
             A list containing the fetched results.
+
+        Raises
+        ------
+        dsc.DSCGGError
+            Something went wrong.
         """
 
-        if not limit:
-            res = await self._ses.get(url=BASE + f"/search/{query}")
-        else:
-            res = await self._ses.get(url=BASE + f"/search/{query}?limit={limit}")
-        if res.status == 429:
-            raise RateLimitedError('search has hit the rate limit, whitelist your application')
-        try:
-            await self._raise_for_status(response=res)
-            return list([Link(data=link) for link in list(await res.json())])
-        except NotFound:
+        self.__v(message='Compiling search URL...')
+        url = BASE + f"/search?q={query}"
+        if limit:
+            url += f'&limit={limit}'
+        if link_type.lower() in ['server', 'bot', 'template']:
+            url += f'&type={link_type.lower()}'
+        self.__v(message='Fetching search results...')
+        res = await self._ses.get(url=url)
+        if res.status == 404:
             return []
+        await self._raise_for_status(response=await res.json())
+        self.__v(message='Links found.')
+        return list([Link(data=link) for link in list(dict(await res.json())['payload'])])
 
     async def create_link(self, link: str, redirect: str, embed: Optional[Embed] = None,
                           password: Optional[str] = None,
@@ -327,16 +384,8 @@ class Client:
 
         Raises
         ------
-        dsc.Unauthorized
-            The token passed was invalid
-        dsc.Forbidden
-            Attempted to access premium features or the token is invalid
-        dsc.BadRequest
-            The arguments passed are malformed
-        dsc.RequestEntityTooLarge
-            The passed link slug or password is too long
-        dsc.RateLimitedError
-            A rate limit was exhausted.
+        dsc.DSCGGError:
+            Something went wrong.
         """
 
         link: str = self.format_link(link=link)
@@ -355,15 +404,13 @@ class Client:
         if unlisted is True:
             body['unlisted']: bool = True
 
-        self.__v(msg='Attempting to create link \'%s\'...' % link)
+        self.__v(message='Attempting to create link \'%s\'...' % link)
         res = await self._ses.post(url=BASE + f'/link/{link}', json=body)
-        if res.status == 429:
-            raise RateLimitedError('create_link has hit the rate limit, whitelist your application')
-        await self._raise_for_status(response=res)
-        if res.status == 200:
-            self.__v(msg='Link \'%s\' created.' % link)
+        await self._raise_for_status(response=await res.json())
+        if res.status == 201:
+            self.__v(message='Link \'%s\' created.' % link)
         else:
-            self.__v(msg='failed to create link \'%s\'' % link)
+            self.__v(message='failed to create link \'%s\'' % link)
         return res.status
 
     async def update_link(self, link: str, redirect: Optional[str] = None, embed: Optional[Embed] = None,
@@ -388,18 +435,8 @@ class Client:
 
         Raises
         ------
-        dsc.Unauthorized
-            The token passed was invalid
-        dsc.Forbidden
-            Attempted to access premium features or the token is invalid
-        dsc.BadRequest
-            The arguments passed are malformed
-        dsc.RequestEntityTooLarge
-            The passed link slug or password is too long
-        dsc.NotFound
-            The passed link slug doesn't exist
-        dsc.RateLimitedError
-            A rate limit was exhausted.
+        dsc.DSCGGError:
+            Something went wrong.
         """
 
         link: str = self.format_link(link=link)
@@ -418,12 +455,10 @@ class Client:
         if redirect is not None:
             body['redirect']: str = redirect
 
-        self.__v(msg='Attempting to update link \'%s\'...' % link)
+        self.__v(message='Attempting to update link \'%s\'...' % link)
         res = await self._ses.patch(url=BASE + f'/link/{link}', json=body)
-        if res.status == 429:
-            raise RateLimitedError('update_link has hit the rate limit, whitelist your application')
-        await self._raise_for_status(response=res)
-        self.__v(msg='Link \'%s\' updated.' % link)
+        await self._raise_for_status(response=await res.json())
+        self.__v(message='Link \'%s\' updated.' % link)
         return res.status
 
     async def delete_link(self, link: str) -> int:
@@ -438,38 +473,26 @@ class Client:
 
         Raises
         ------
-        dsc.Unauthorized
-            The token passed was invalid
-        dsc.Forbidden
-            Attempted to access premium features or the token is invalid
-        dsc.BadRequest
-            The arguments passed are malformed
-        dsc.RequestEntityTooLarge
-            The passed link slug or password is too long
-        dsc.NotFound
-            The passed link slug doesn't exist
-        dsc.RateLimitedError
-            A rate limit was exhausted.
+        dsc.DSCGGError:
+            Something went wrong.
         """
 
         link: str = self.format_link(link=link)
-        self.__v(msg='Attempting to delete link \'%s\'...' % link)
+        self.__v(message='Attempting to delete link \'%s\'...' % link)
         res = await self._ses.delete(url=BASE + f'/link/{link}')
-        if res.status == 429:
-            raise RateLimitedError('delete_link has hit the rate limit, whitelist your application')
-        await self._raise_for_status(response=res)
-        self.__v(msg='Link \'%s\' deleted.' % link)
+        await self._raise_for_status(response=await res.json())
+        self.__v(message='Link \'%s\' deleted.' % link)
         return res.status
 
-    def __v(self, msg: str) -> None:
+    def __v(self, message: str) -> None:
         """
         Log info in the console if `verbose` is True.
 
         Parameters
         ----------
-        msg: :class:`str`
+        message: :class:`str`
             The message to log in the console
         """
 
         if self.verbose:
-            print(msg)
+            print(message)
