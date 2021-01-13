@@ -27,6 +27,7 @@ SOFTWARE.
 from datetime import datetime
 from typing import Union, Any
 from colorsys import hsv_to_rgb
+from __future__ import annotations
 
 __all__ = (
     'App',
@@ -151,7 +152,7 @@ class User:
         self.id: int = int(data.get('id'))
         self.premium: bool = data.get('premium', False)
         self.verified: bool = data.get('verified', False)
-        self.joined_at: datetime = datetime.utcfromtimestamp(int(data.get('joined_at')))
+        self.joined_at: datetime = datetime.utcfromtimestamp(int(data.get('joined_at')) / 1000)
         self.blacklisted: bool = data.get('blacklisted', False)
 
     def to_dict(self) -> dict:
@@ -249,8 +250,8 @@ class Link:
         self.id: str = data.get('id', None)
         self.owner_id: int = data.get('owner', None)
         self.redirect: str = data.get('redirect', None)
-        self.created_at: datetime = datetime.utcfromtimestamp(int(data.get('created_at')))
-        self.bumped_at: datetime = datetime.utcfromtimestamp(int(bump)) if bump else None
+        self.created_at: datetime = datetime.utcfromtimestamp(int(data.get('created_at')) / 1000)
+        self.bumped_at: datetime = datetime.utcfromtimestamp(int(bump) / 1000) if bump else None
         self.unlisted: bool = data.get('unlisted', False)
         self.disabled: bool = data.get('disabled', False)
         self.embed: Embed = Embed.from_dict(dict(data)['meta'])
@@ -344,7 +345,7 @@ class Embed:
         self.title: str = kwargs.get('title', None)
 
     @classmethod
-    def from_dict(cls, data: dict):
+    def from_dict(cls, data: dict) -> Embed:
         """
         Returns a :class:`dsc.Embed` object initialized by values from the passed dictionary
 
