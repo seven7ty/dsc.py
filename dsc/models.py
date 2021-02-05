@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # -*- coding: utf-8 -*-
 
 """
@@ -27,7 +29,6 @@ SOFTWARE.
 from datetime import datetime
 from typing import Union, Any
 from colorsys import hsv_to_rgb
-from __future__ import annotations
 
 __all__ = (
     'App',
