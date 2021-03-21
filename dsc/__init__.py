@@ -14,7 +14,7 @@ from .client import Client
 from .models import Embed, Colour, Color
 from collections import namedtuple
 
-__version__ = '1.1.2'
+__version__ = '1.1.3'
 __title__ = 'dsc'
 __license__ = 'MIT'
 __author__ = 'wulf'
