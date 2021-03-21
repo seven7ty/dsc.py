@@ -85,6 +85,8 @@ class Client:
 
         if link.startswith("https://dsc.gg/"):
             return link[15:]
+        elif link.startswith("http://dsc.gg/"):
+            return link[14:]
         elif link.startswith('dsc.gg/'):
             return link[7:]
         return link
