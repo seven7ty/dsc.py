@@ -363,6 +363,34 @@ class Client:
         await self._raise_for_status(response=await res.json())
         self.__v(message='Links found.')
         return list([Link(data=link) for link in list(dict(await res.json())['payload'])])
+    
+    async def butt(self) -> str(butt):
+        """
+        Returns a butt from dsc.gg's secret endpoint
+
+        Parameters
+        ----------
+        N/A
+
+        Returns
+        -------
+        String
+            Butt string
+
+        Raises
+        ------
+        N/A
+        """
+        
+        self.__v(message='Fetching butt')
+        res = await self._ses.get(url=BASE + "/butt")
+
+        if res.status == 200:
+            self.__v(message='Butt found.')
+            return str(await res.text())
+        if res.status != 404:
+            await self._raise_for_status(response=await res.json())
+        return None
 
     async def create_link(self, link: str, redirect: str, embed: Optional[Embed] = None,
                           password: Optional[str] = None,
