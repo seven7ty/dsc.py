@@ -364,7 +364,7 @@ class Client:
         self.__v(message='Links found.')
         return list([Link(data=link) for link in list(dict(await res.json())['payload'])])
     
-    async def butt(self) -> str(butt):
+    async def get_butt(self) -> str:
         """
         Returns a butt from dsc.gg's secret endpoint
 
@@ -374,12 +374,13 @@ class Client:
 
         Returns
         -------
-        String
-            Butt string
+        :class:`str`
+            Butt.
 
         Raises
         ------
-        N/A
+        dsc.DSCGGError
+            Something went wrong.
         """
         
         self.__v(message='Fetching butt')
