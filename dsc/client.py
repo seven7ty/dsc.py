@@ -85,6 +85,8 @@ class Client:
 
         if link.startswith("https://dsc.gg/"):
             return link[15:]
+        elif link.startswith("http://dsc.gg/"):
+            return link[14:]
         elif link.startswith('dsc.gg/'):
             return link[7:]
         return link
@@ -361,6 +363,35 @@ class Client:
         await self._raise_for_status(response=await res.json())
         self.__v(message='Links found.')
         return list([Link(data=link) for link in list(dict(await res.json())['payload'])])
+    
+    async def get_butt(self) -> str:
+        """
+        Returns a butt from dsc.gg's secret endpoint
+
+        Parameters
+        ----------
+        N/A
+
+        Returns
+        -------
+        :class:`str`
+            Butt.
+
+        Raises
+        ------
+        dsc.DSCGGError
+            Something went wrong.
+        """
+        
+        self.__v(message='Fetching butt')
+        res = await self._ses.get(url=BASE + "/butt")
+
+        if res.status == 200:
+            self.__v(message='Butt found.')
+            return str(await res.text())
+        if res.status != 404:
+            await self._raise_for_status(response=await res.json())
+        return None
 
     async def create_link(self, link: str, redirect: str, embed: Optional[Embed] = None,
                           password: Optional[str] = None,
